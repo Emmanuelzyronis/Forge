@@ -145,10 +145,10 @@ func (s *Scheduler) recoverJob(
 		}
 	}
 
-	// Apply retry policy.
+	// Apply retry policy with exponential backoff.
 	policy := domain.RetryPolicy{MaxAttempts: maxAttempts}
 	if policy.ShouldRetry(attemptCount) {
-		// Re-queue immediately; Layer 9 adds per-job backoff here.
+		eligibleAt := policy.NextEligibleAt(attemptCount, now)
 		if _, err := tx.Exec(ctx, `
 			UPDATE jobs
 			SET state              = 'QUEUED',
@@ -156,9 +156,9 @@ func (s *Scheduler) recoverJob(
 			    lease_expires_at   = NULL,
 			    current_attempt_id = NULL,
 			    eligible_at        = $1,
-			    updated_at         = $1
-			WHERE id = $2`,
-			now, jobID,
+			    updated_at         = $2
+			WHERE id = $3`,
+			eligibleAt, now, jobID,
 		); err != nil {
 			return err
 		}

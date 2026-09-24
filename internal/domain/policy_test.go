@@ -9,21 +9,20 @@ import (
 
 func TestRetryPolicy_ShouldRetry(t *testing.T) {
 	p := domain.RetryPolicy{MaxAttempts: 3}
-
-	cases := []struct {
-		attemptCount int
-		want         bool
-	}{
-		{0, true},
-		{1, true},
-		{2, true},
-		{3, false}, // exhausted
-		{4, false},
+	if !p.ShouldRetry(0) {
+		t.Error("attempt 0 of 3 should retry")
 	}
-	for _, tc := range cases {
-		if got := p.ShouldRetry(tc.attemptCount); got != tc.want {
-			t.Errorf("ShouldRetry(%d) = %v, want %v", tc.attemptCount, got, tc.want)
-		}
+	if !p.ShouldRetry(1) {
+		t.Error("attempt 1 of 3 should retry")
+	}
+	if !p.ShouldRetry(2) {
+		t.Error("attempt 2 of 3 should retry")
+	}
+	if p.ShouldRetry(3) {
+		t.Error("attempt 3 of 3 should not retry")
+	}
+	if p.ShouldRetry(4) {
+		t.Error("attempt 4 of 3 should not retry")
 	}
 }
 
@@ -32,70 +31,72 @@ func TestRetryPolicy_DefaultPolicy(t *testing.T) {
 	if p.MaxAttempts != 3 {
 		t.Errorf("MaxAttempts = %d, want 3", p.MaxAttempts)
 	}
-	if p.BackoffSecs != 0 {
-		t.Errorf("BackoffSecs = %d, want 0", p.BackoffSecs)
+	if p.InitialDelay != 5*time.Second {
+		t.Errorf("InitialDelay = %v, want 5s", p.InitialDelay)
 	}
-	if p.BackoffMultiplier != 1.0 {
-		t.Errorf("BackoffMultiplier = %f, want 1.0", p.BackoffMultiplier)
-	}
-}
-
-func TestRetryPolicy_NextEligibleAt_ZeroBackoff(t *testing.T) {
-	p := domain.RetryPolicy{MaxAttempts: 3, BackoffSecs: 0, BackoffMultiplier: 1.0}
-	now := time.Now().UTC()
-
-	// With zero backoff, always returns now regardless of attempt number.
-	for _, attempt := range []int{1, 2, 3} {
-		got := p.NextEligibleAt(attempt, now)
-		if !got.Equal(now) {
-			t.Errorf("attempt %d: expected now (%v), got %v", attempt, now, got)
-		}
-	}
-}
-
-func TestRetryPolicy_NextEligibleAt_LinearBackoff(t *testing.T) {
-	// Multiplier=1.0 → linear: delay = BackoffSecs * 1^(n-1) = BackoffSecs always.
-	p := domain.RetryPolicy{MaxAttempts: 5, BackoffSecs: 10, BackoffMultiplier: 1.0}
-	now := time.Now().UTC()
-
-	for _, attempt := range []int{1, 2, 3} {
-		got := p.NextEligibleAt(attempt, now)
-		want := now.Add(10 * time.Second)
-		if !got.Equal(want) {
-			t.Errorf("attempt %d: expected %v, got %v", attempt, want, got)
-		}
+	if p.MaxDelay != 30*time.Minute {
+		t.Errorf("MaxDelay = %v, want 30m", p.MaxDelay)
 	}
 }
 
 func TestRetryPolicy_NextEligibleAt_ExponentialBackoff(t *testing.T) {
-	// BackoffSecs=10, Multiplier=2.0 → delays: 10, 20, 40 seconds for attempts 1,2,3.
-	p := domain.RetryPolicy{MaxAttempts: 5, BackoffSecs: 10, BackoffMultiplier: 2.0}
-	now := time.Now().UTC()
-
-	cases := []struct {
-		attempt  int
-		wantSecs float64
-	}{
-		{1, 10},  // 10 * 2^0 = 10
-		{2, 20},  // 10 * 2^1 = 20
-		{3, 40},  // 10 * 2^2 = 40
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	p := domain.RetryPolicy{
+		MaxAttempts:  5,
+		InitialDelay: 10 * time.Second,
+		MaxDelay:     5 * time.Minute,
 	}
-	for _, tc := range cases {
-		got := p.NextEligibleAt(tc.attempt, now)
-		want := now.Add(time.Duration(tc.wantSecs * float64(time.Second)))
-		if !got.Equal(want) {
-			t.Errorf("attempt %d: expected %v, got %v", tc.attempt, want, got)
+
+	tests := []struct {
+		attemptNum int
+		wantDelay  time.Duration
+	}{
+		{1, 10 * time.Second},        // 10s * 2^0 = 10s
+		{2, 20 * time.Second},        // 10s * 2^1 = 20s
+		{3, 40 * time.Second},        // 10s * 2^2 = 40s
+		{4, 80 * time.Second},        // 10s * 2^3 = 80s
+		{5, 160 * time.Second},       // 10s * 2^4 = 160s (under 5m cap)
+		{6, 5 * time.Minute},         // 10s * 2^5 = 320s → capped at 5m
+	}
+	for _, tt := range tests {
+		got := p.NextEligibleAt(tt.attemptNum, now)
+		if got.Sub(now) != tt.wantDelay {
+			t.Errorf("attempt %d: want delay %v, got %v", tt.attemptNum, tt.wantDelay, got.Sub(now))
 		}
 	}
 }
 
-func TestRetryPolicy_NextEligibleAt_ZeroAttempt(t *testing.T) {
-	p := domain.RetryPolicy{MaxAttempts: 3, BackoffSecs: 30, BackoffMultiplier: 2.0}
-	now := time.Now().UTC()
+func TestRetryPolicy_NextEligibleAt_Defaults(t *testing.T) {
+	// Zero InitialDelay/MaxDelay → defaults to 5s base, 30m cap.
+	p := domain.RetryPolicy{MaxAttempts: 3}
+	now := time.Now()
+	got := p.NextEligibleAt(1, now)
+	want := 5 * time.Second
+	if got.Sub(now) != want {
+		t.Errorf("default attempt 1: want %v delay, got %v", want, got.Sub(now))
+	}
+}
 
-	// Attempt <= 0 should return now (guard against nonsensical input).
+func TestRetryPolicy_NextEligibleAt_OverflowSafe(t *testing.T) {
+	// Large attempt number must not panic or produce a past/over-max eligible_at.
+	p := domain.RetryPolicy{MaxAttempts: 100, InitialDelay: time.Second, MaxDelay: time.Hour}
+	now := time.Now()
+	got := p.NextEligibleAt(100, now)
+	if got.Before(now) {
+		t.Error("large attempt number produced past eligible_at")
+	}
+	if got.Sub(now) > time.Hour {
+		t.Errorf("large attempt number exceeded MaxDelay: got %v", got.Sub(now))
+	}
+}
+
+func TestRetryPolicy_NextEligibleAt_ZeroAttempt(t *testing.T) {
+	// Attempt <= 0 is clamped to 1.
+	p := domain.RetryPolicy{MaxAttempts: 3, InitialDelay: 10 * time.Second, MaxDelay: time.Hour}
+	now := time.Now()
 	got := p.NextEligibleAt(0, now)
-	if !got.Equal(now) {
-		t.Errorf("attempt 0: expected now, got %v", got)
+	want := now.Add(10 * time.Second)
+	if got.Sub(now) != 10*time.Second {
+		t.Errorf("attempt 0 clamped to 1: want %v, got %v", want, got)
 	}
 }

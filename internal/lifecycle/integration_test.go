@@ -74,7 +74,7 @@ func claimJob(t *testing.T, pool *pgxpool.Pool, workerID uuid.UUID) (jobID, atte
 func TestStart_TransitionsToRunning(t *testing.T) {
 	pool := setupPool(t)
 	ctx := context.Background()
-	svc := lifecycle.NewService(pool, zerolog.Nop())
+	svc := lifecycle.NewService(pool, 30*time.Second, zerolog.Nop())
 
 	workerID := insertWorker(t, pool)
 	insertQueuedJob(t, pool, 3)
@@ -100,7 +100,7 @@ func TestStart_TransitionsToRunning(t *testing.T) {
 func TestJobHeartbeat_UpdatesHeartbeatAt(t *testing.T) {
 	pool := setupPool(t)
 	ctx := context.Background()
-	svc := lifecycle.NewService(pool, zerolog.Nop())
+	svc := lifecycle.NewService(pool, 30*time.Second, zerolog.Nop())
 
 	workerID := insertWorker(t, pool)
 	insertQueuedJob(t, pool, 3)
@@ -128,7 +128,7 @@ func TestJobHeartbeat_UpdatesHeartbeatAt(t *testing.T) {
 func TestSucceed_MarksJobSucceeded(t *testing.T) {
 	pool := setupPool(t)
 	ctx := context.Background()
-	svc := lifecycle.NewService(pool, zerolog.Nop())
+	svc := lifecycle.NewService(pool, 30*time.Second, zerolog.Nop())
 
 	workerID := insertWorker(t, pool)
 	insertQueuedJob(t, pool, 3)
@@ -161,7 +161,7 @@ func TestSucceed_MarksJobSucceeded(t *testing.T) {
 func TestFail_WithRetry_RequeuesJob(t *testing.T) {
 	pool := setupPool(t)
 	ctx := context.Background()
-	svc := lifecycle.NewService(pool, zerolog.Nop())
+	svc := lifecycle.NewService(pool, 30*time.Second, zerolog.Nop())
 
 	workerID := insertWorker(t, pool)
 	// max_attempts=2 so attempt_count=1 after claim → ShouldRetry(1) → 1 < 2 → true
@@ -187,7 +187,7 @@ func TestFail_WithRetry_RequeuesJob(t *testing.T) {
 func TestFail_NoRetry_MarksJobFailed(t *testing.T) {
 	pool := setupPool(t)
 	ctx := context.Background()
-	svc := lifecycle.NewService(pool, zerolog.Nop())
+	svc := lifecycle.NewService(pool, 30*time.Second, zerolog.Nop())
 
 	workerID := insertWorker(t, pool)
 	// max_attempts=1 so attempt_count=1 after claim → ShouldRetry(1) → 1 < 1 → false

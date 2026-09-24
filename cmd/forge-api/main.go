@@ -16,6 +16,7 @@ import (
 	"github.com/Emmanuelzyronis/forge/internal/dispatch"
 	"github.com/Emmanuelzyronis/forge/internal/lifecycle"
 	"github.com/Emmanuelzyronis/forge/internal/postgres"
+	"github.com/Emmanuelzyronis/forge/internal/recovery"
 	"github.com/Emmanuelzyronis/forge/internal/registration"
 	"github.com/Emmanuelzyronis/forge/internal/submission"
 	"github.com/Emmanuelzyronis/forge/internal/telemetry"
@@ -47,7 +48,10 @@ func main() {
 	submitSvc := submission.NewService(jobRepo, log)
 	registrationSvc := registration.NewService(workerRepo, log)
 	dispatchSvc := dispatch.NewService(jobRepo, cfg.LeaseDuration, log)
-	lifecycleSvc := lifecycle.NewService(pool, log)
+	lifecycleSvc := lifecycle.NewService(pool, cfg.LeaseDuration, log)
+
+	scheduler := recovery.NewScheduler(pool, cfg.RecoveryInterval, log)
+	go scheduler.Run(ctx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))

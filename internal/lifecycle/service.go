@@ -15,12 +15,13 @@ import (
 // It holds the pool directly so it can issue cross-table atomic transactions across
 // job_attempts, jobs, and job_events in a single commit (F-INV-010).
 type Service struct {
-	pool *pgxpool.Pool
-	log  zerolog.Logger
+	pool          *pgxpool.Pool
+	leaseDuration time.Duration
+	log           zerolog.Logger
 }
 
-func NewService(pool *pgxpool.Pool, log zerolog.Logger) *Service {
-	return &Service{pool: pool, log: log}
+func NewService(pool *pgxpool.Pool, leaseDuration time.Duration, log zerolog.Logger) *Service {
+	return &Service{pool: pool, leaseDuration: leaseDuration, log: log}
 }
 
 // Start transitions the attempt CREATED→RUNNING and the job CLAIMED→RUNNING.
@@ -76,20 +77,22 @@ func (s *Service) Start(ctx context.Context, attemptID, leaseToken uuid.UUID) er
 	})
 }
 
-// JobHeartbeat refreshes last_heartbeat_at on a RUNNING job.
-// Returns domain.StaleLeaseError if the token is invalid or the job is not RUNNING.
+// JobHeartbeat extends lease_expires_at and refreshes last_heartbeat_at on an in-flight job.
+// Extending the lease prevents the recovery scheduler from reclaiming jobs from healthy workers.
+// Returns domain.StaleLeaseError if the token is invalid or the job is not in-flight.
 func (s *Service) JobHeartbeat(ctx context.Context, jobID, leaseToken uuid.UUID) error {
 	now := time.Now().UTC()
-	tag, err := s.pool.Exec(ctx,
-		`UPDATE jobs SET last_heartbeat_at = $1, updated_at = $1
-		 WHERE id = $2 AND lease_token = $3 AND state = 'RUNNING'`,
-		now, jobID, leaseToken,
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE jobs
+		SET lease_expires_at = $1, last_heartbeat_at = $2, updated_at = $2
+		WHERE id = $3 AND lease_token = $4 AND state IN ('CLAIMED','RUNNING')`,
+		now.Add(s.leaseDuration), now, jobID, leaseToken,
 	)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return &domain.StaleLeaseError{Reason: "heartbeat: token mismatch or job not RUNNING"}
+		return &domain.StaleLeaseError{Reason: "heartbeat: token mismatch or job not in-flight"}
 	}
 	return nil
 }

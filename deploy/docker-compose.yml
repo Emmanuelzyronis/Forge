@@ -15,6 +15,19 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    image: migrate/migrate:v4.17.1
+    volumes:
+      - ../migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://forge:forge@postgres:5432/forge?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
   forge-api:
     build:
       context: ..
@@ -22,11 +35,13 @@ services:
     environment:
       FORGE_DATABASE_URL: postgres://forge:forge@postgres:5432/forge?sslmode=disable
       FORGE_LISTEN_ADDR: ":8080"
+      FORGE_LEASE_DURATION_SECS: "30"
+      FORGE_RECOVERY_INTERVAL_SECS: "10"
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: on-failure
 
   forge-worker:
@@ -34,12 +49,15 @@ services:
       context: ..
       dockerfile: Dockerfile.worker
     environment:
-      FORGE_DATABASE_URL: postgres://forge:forge@postgres:5432/forge?sslmode=disable
       FORGE_API_URL: http://forge-api:8080
-      FORGE_WORKER_NAME: worker-1
+      FORGE_POLL_INTERVAL_SECS: "1"
+      FORGE_HEARTBEAT_INTERVAL_SECS: "10"
     depends_on:
-      - forge-api
+      forge-api:
+        condition: service_started
     restart: on-failure
+    deploy:
+      replicas: 2
 
 volumes:
   postgres_data:

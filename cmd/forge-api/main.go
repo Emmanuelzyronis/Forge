@@ -44,6 +44,8 @@ func main() {
 
 	jobRepo := postgres.NewJobRepo(pool)
 	workerRepo := postgres.NewWorkerRepo(pool)
+	attemptRepo := postgres.NewAttemptRepo(pool)
+	eventRepo := postgres.NewEventRepo(pool)
 
 	submitSvc := submission.NewService(jobRepo, log)
 	registrationSvc := registration.NewService(workerRepo, log)
@@ -64,6 +66,14 @@ func main() {
 	mux.Handle("POST /attempts/{id}/succeed", api.SucceedAttemptHandler(lifecycleSvc, log))
 	mux.Handle("POST /attempts/{id}/fail", api.FailAttemptHandler(lifecycleSvc, log))
 	mux.Handle("POST /jobs/{id}/heartbeat", api.LifecycleJobHeartbeatHandler(lifecycleSvc, log))
+
+	// Query endpoints (read-only).
+	mux.Handle("GET /jobs", api.ListJobsHandler(jobRepo, log))
+	mux.Handle("GET /jobs/{id}", api.GetJobHandler(jobRepo, log))
+	mux.Handle("GET /jobs/{id}/attempts", api.ListAttemptsHandler(attemptRepo, log))
+	mux.Handle("GET /jobs/{id}/events", api.ListEventsHandler(eventRepo, log))
+	mux.Handle("GET /workers", api.ListWorkersHandler(workerRepo, log))
+	mux.Handle("GET /workers/{id}", api.GetWorkerHandler(workerRepo, log))
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,

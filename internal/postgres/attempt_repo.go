@@ -72,6 +72,29 @@ func (r *AttemptRepo) Fail(ctx context.Context, tx pgx.Tx, attemptID uuid.UUID, 
 	return err
 }
 
+func (r *AttemptRepo) ListByJobID(ctx context.Context, jobID uuid.UUID) ([]*domain.ExecutionAttempt, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, job_id, attempt_num, worker_id, state, lease_token,
+		       started_at, finished_at, error_detail, failure_detail,
+		       result, duration_ms, created_at, updated_at
+		FROM job_attempts
+		WHERE job_id = $1
+		ORDER BY attempt_num ASC`, jobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var attempts []*domain.ExecutionAttempt
+	for rows.Next() {
+		a, err := scanAttempt(rows)
+		if err != nil {
+			return nil, err
+		}
+		attempts = append(attempts, a)
+	}
+	return attempts, rows.Err()
+}
+
 func scanAttempt(row rowScanner) (*domain.ExecutionAttempt, error) {
 	a := &domain.ExecutionAttempt{}
 	var state string

@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Emmanuelzyronis/forge/internal/domain"
+	"github.com/Emmanuelzyronis/forge/internal/store"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -234,6 +236,50 @@ func (r *JobRepo) ListExpiredLeases(ctx context.Context, now time.Time) ([]*doma
 		  AND lease_expires_at < $1`,
 		now,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var jobs []*domain.Job
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
+func (r *JobRepo) List(ctx context.Context, filter store.JobFilter) ([]*domain.Job, error) {
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	q := `SELECT ` + jobColumns + ` FROM jobs WHERE TRUE`
+	args := []any{}
+	idx := 1
+
+	if filter.State != nil {
+		q += fmt.Sprintf(" AND state = $%d", idx)
+		args = append(args, string(*filter.State))
+		idx++
+	}
+	if filter.Kind != nil {
+		q += fmt.Sprintf(" AND kind = $%d", idx)
+		args = append(args, *filter.Kind)
+		idx++
+	}
+	if filter.CorrelationID != nil {
+		q += fmt.Sprintf(" AND correlation_id = $%d", idx)
+		args = append(args, *filter.CorrelationID)
+		idx++
+	}
+	q += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", idx, idx+1)
+	args = append(args, limit, filter.Offset)
+
+	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

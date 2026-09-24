@@ -90,6 +90,9 @@ func (m *memJobStore) Requeue(_ context.Context, _ pgx.Tx, _ uuid.UUID, _ time.T
 func (m *memJobStore) ListExpiredLeases(_ context.Context, _ time.Time) ([]*domain.Job, error) {
 	return nil, nil
 }
+func (m *memJobStore) List(_ context.Context, _ store.JobFilter) ([]*domain.Job, error) {
+	return nil, nil
+}
 
 // Compile-time interface check.
 var _ store.JobStore = (*memJobStore)(nil)

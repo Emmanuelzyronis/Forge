@@ -10,6 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// JobFilter restricts which jobs List returns. Zero values mean "no filter".
+type JobFilter struct {
+	State         *domain.JobState
+	Kind          *string
+	CorrelationID *string
+	Limit         int // 0 → default 50
+	Offset        int
+}
+
 // JobStore handles job persistence and the SKIP LOCKED claim primitive.
 type JobStore interface {
 	Create(ctx context.Context, job *domain.Job) error
@@ -26,6 +35,7 @@ type JobStore interface {
 	Heartbeat(ctx context.Context, jobID uuid.UUID, leaseToken uuid.UUID, now time.Time) error
 	Requeue(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, eligibleAt time.Time) error
 	ListExpiredLeases(ctx context.Context, now time.Time) ([]*domain.Job, error)
+	List(ctx context.Context, filter JobFilter) ([]*domain.Job, error)
 }
 
 // AttemptStore handles execution attempt persistence.
@@ -35,6 +45,7 @@ type AttemptStore interface {
 	UpdateState(ctx context.Context, tx pgx.Tx, attemptID uuid.UUID, state domain.AttemptState) error
 	Complete(ctx context.Context, tx pgx.Tx, attemptID uuid.UUID, result []byte, durationMS int64) error
 	Fail(ctx context.Context, tx pgx.Tx, attemptID uuid.UUID, state domain.AttemptState, reason string, detail []byte) error
+	ListByJobID(ctx context.Context, jobID uuid.UUID) ([]*domain.ExecutionAttempt, error)
 }
 
 // WorkerStore handles worker registration and heartbeat.

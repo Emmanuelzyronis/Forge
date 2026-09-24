@@ -79,6 +79,15 @@ func main() {
 		}
 	}()
 
+	poller := worker.NewPoller(
+		reg.WorkerID,
+		client,
+		cfg.PollInterval,
+		worker.StubExecutor(log),
+		log,
+	)
+	go poller.Run(ctx)
+
 	log.Info().Str("worker_id", reg.WorkerID).Msg("forge-worker ready")
 	<-ctx.Done()
 

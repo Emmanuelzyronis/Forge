@@ -13,6 +13,7 @@ import (
 
 	"github.com/Emmanuelzyronis/forge/internal/api"
 	"github.com/Emmanuelzyronis/forge/internal/config"
+	"github.com/Emmanuelzyronis/forge/internal/dispatch"
 	"github.com/Emmanuelzyronis/forge/internal/postgres"
 	"github.com/Emmanuelzyronis/forge/internal/registration"
 	"github.com/Emmanuelzyronis/forge/internal/submission"
@@ -44,6 +45,7 @@ func main() {
 
 	submitSvc := submission.NewService(jobRepo, log)
 	registrationSvc := registration.NewService(workerRepo, log)
+	dispatchSvc := dispatch.NewService(jobRepo, cfg.LeaseDuration, log)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))
@@ -51,6 +53,7 @@ func main() {
 	mux.Handle("POST /workers", api.RegisterWorkerHandler(registrationSvc, log))
 	mux.Handle("POST /workers/{id}/heartbeat", api.WorkerHeartbeatHandler(registrationSvc, log))
 	mux.Handle("DELETE /workers/{id}", api.WorkerOfflineHandler(registrationSvc, log))
+	mux.Handle("POST /workers/{id}/claim", api.ClaimJobHandler(dispatchSvc, log))
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,

@@ -83,7 +83,7 @@ func main() {
 		reg.WorkerID,
 		client,
 		cfg.PollInterval,
-		worker.StubExecutor(log),
+		worker.RealExecutor(client, log),
 		log,
 	)
 	go poller.Run(ctx)

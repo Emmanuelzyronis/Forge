@@ -172,9 +172,19 @@ func normalize(raw *RawEvidence, recoveryLatencySecs int) *Presentation {
 	})
 
 	epoch := raw.Events[0].OccurredAt
+
+	// Find the elapsed time of the first STARTED event so the synthetic CRASH
+	// marker can be placed a few seconds after execution began, not at t=0.
+	startedElapsed := -1.0
+	for _, ev := range raw.Events {
+		if ev.Type == "STARTED" {
+			startedElapsed = ev.OccurredAt.Sub(epoch).Seconds()
+			break
+		}
+	}
+
 	var timeline []TimelineEntry
 	var crashInserted bool
-	var crashElapsed float64
 
 	for _, ev := range raw.Events {
 		elapsed := ev.OccurredAt.Sub(epoch).Seconds()
@@ -205,17 +215,34 @@ func normalize(raw *RawEvidence, recoveryLatencySecs int) *Presentation {
 			entry.IsRecovery = true
 		}
 
-		// Insert synthetic crash marker before the ABANDONED event from the first attempt
+		// Insert synthetic crash marker before the ABANDONED event.
+		// Place it 3s after STARTED (the demo script kills the worker within
+		// a few seconds of observing RUNNING state), or 1/8 of the way between
+		// STARTED and ABANDONED when the window is larger.
 		if !crashInserted && ev.Type == "ABANDONED" {
-			// Crash happened roughly (lease_secs + sweep_interval) before the ABANDONED event
-			crashElapsed = elapsed - float64(recoveryLatencySecs)
-			if crashElapsed < 0 {
-				crashElapsed = 0
+			var crashElapsed float64
+			if startedElapsed >= 0 {
+				gap := elapsed - startedElapsed
+				crashElapsed = startedElapsed + min(3.0, gap*0.12)
+			} else {
+				// fallback: 30s before abandoned (lease default)
+				crashElapsed = elapsed - 30.0
+				if crashElapsed < 0 {
+					crashElapsed = 0
+				}
+			}
+			// resolve worker-01 name from first STARTED event
+			crashWorker := "worker-01"
+			for _, e2 := range raw.Events {
+				if e2.Type == "STARTED" && e2.WorkerID != nil {
+					crashWorker = workerNameByID(*e2.WorkerID, raw.Workers)
+					break
+				}
 			}
 			timeline = append(timeline, TimelineEntry{
 				ElapsedSecs: crashElapsed,
 				EventType:   "CRASH",
-				WorkerName:  "worker-01",
+				WorkerName:  crashWorker,
 				IsCrash:     true,
 			})
 			crashInserted = true

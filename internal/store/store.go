@@ -43,6 +43,7 @@ type WorkerStore interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Worker, error)
 	Heartbeat(ctx context.Context, workerID uuid.UUID, now time.Time) error
 	MarkStale(ctx context.Context, workerID uuid.UUID) error
+	MarkOffline(ctx context.Context, workerID uuid.UUID) error
 	ListActive(ctx context.Context) ([]*domain.Worker, error)
 }
 

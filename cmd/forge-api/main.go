@@ -14,6 +14,7 @@ import (
 	"github.com/Emmanuelzyronis/forge/internal/api"
 	"github.com/Emmanuelzyronis/forge/internal/config"
 	"github.com/Emmanuelzyronis/forge/internal/postgres"
+	"github.com/Emmanuelzyronis/forge/internal/registration"
 	"github.com/Emmanuelzyronis/forge/internal/submission"
 	"github.com/Emmanuelzyronis/forge/internal/telemetry"
 )
@@ -39,11 +40,17 @@ func main() {
 	log.Info().Msg("database connection established")
 
 	jobRepo := postgres.NewJobRepo(pool)
+	workerRepo := postgres.NewWorkerRepo(pool)
+
 	submitSvc := submission.NewService(jobRepo, log)
+	registrationSvc := registration.NewService(workerRepo, log)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))
 	mux.Handle("POST /jobs", api.SubmitJobHandler(submitSvc, log))
+	mux.Handle("POST /workers", api.RegisterWorkerHandler(registrationSvc, log))
+	mux.Handle("POST /workers/{id}/heartbeat", api.WorkerHeartbeatHandler(registrationSvc, log))
+	mux.Handle("DELETE /workers/{id}", api.WorkerOfflineHandler(registrationSvc, log))
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,

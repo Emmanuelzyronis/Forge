@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Emmanuelzyronis/forge/internal/dispatch"
+	"github.com/Emmanuelzyronis/forge/internal/telemetry"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -23,7 +24,7 @@ type claimResponse struct {
 
 // ClaimJobHandler handles POST /workers/{id}/claim.
 // Returns 200+job when a job is available, 204 when the queue is empty.
-func ClaimJobHandler(svc *dispatch.Service, log zerolog.Logger) http.HandlerFunc {
+func ClaimJobHandler(svc *dispatch.Service, log zerolog.Logger, m *telemetry.Metrics) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.PathValue("id")
 		workerID, err := uuid.Parse(idStr)
@@ -53,6 +54,9 @@ func ClaimJobHandler(svc *dispatch.Service, log zerolog.Logger) http.HandlerFunc
 			leaseExpiresAt = result.Job.LeaseExpiresAt.Format("2006-01-02T15:04:05Z07:00")
 		}
 
+		if m != nil {
+			m.JobsClaimed.Inc()
+		}
 		writeJSON(w, http.StatusOK, claimResponse{
 			JobID:          result.Job.ID.String(),
 			AttemptID:      result.Attempt.ID.String(),

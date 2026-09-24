@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Emmanuelzyronis/forge/internal/submission"
-	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
+
+	"github.com/Emmanuelzyronis/forge/internal/submission"
+	"github.com/Emmanuelzyronis/forge/internal/telemetry"
+	"github.com/google/uuid"
 )
 
 // submitJobRequest is the JSON body for POST /jobs.
@@ -39,7 +42,7 @@ type jobResponse struct {
 }
 
 // SubmitJobHandler returns a handler for POST /jobs.
-func SubmitJobHandler(svc *submission.Service, log zerolog.Logger) http.HandlerFunc {
+func SubmitJobHandler(svc *submission.Service, log zerolog.Logger, m *telemetry.Metrics) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body submitJobRequest
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -95,6 +98,9 @@ func SubmitJobHandler(svc *submission.Service, log zerolog.Logger) http.HandlerF
 			CreatedAt:      result.Job.CreatedAt,
 			EligibleAt:     result.Job.EligibleAt,
 			CorrelationID:  correlationID,
+		}
+		if m != nil && result.Created {
+			m.JobsSubmitted.With(prometheus.Labels{"kind": result.Job.Kind}).Inc()
 		}
 		writeJSON(w, status, resp)
 	}

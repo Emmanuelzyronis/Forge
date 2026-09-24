@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/Emmanuelzyronis/forge/internal/api"
 	"github.com/Emmanuelzyronis/forge/internal/config"
@@ -52,18 +53,21 @@ func main() {
 	dispatchSvc := dispatch.NewService(jobRepo, cfg.LeaseDuration, log)
 	lifecycleSvc := lifecycle.NewService(pool, cfg.LeaseDuration, log)
 
+	metrics := telemetry.NewMetrics()
+
 	scheduler := recovery.NewScheduler(pool, cfg.RecoveryInterval, log)
 	go scheduler.Run(ctx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))
-	mux.Handle("POST /jobs", api.SubmitJobHandler(submitSvc, log))
+	mux.Handle("GET /metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
+	mux.Handle("POST /jobs", api.SubmitJobHandler(submitSvc, log, metrics))
 	mux.Handle("POST /workers", api.RegisterWorkerHandler(registrationSvc, log))
 	mux.Handle("POST /workers/{id}/heartbeat", api.WorkerHeartbeatHandler(registrationSvc, log))
 	mux.Handle("DELETE /workers/{id}", api.WorkerOfflineHandler(registrationSvc, log))
-	mux.Handle("POST /workers/{id}/claim", api.ClaimJobHandler(dispatchSvc, log))
+	mux.Handle("POST /workers/{id}/claim", api.ClaimJobHandler(dispatchSvc, log, metrics))
 	mux.Handle("POST /attempts/{id}/start", api.StartAttemptHandler(lifecycleSvc, log))
-	mux.Handle("POST /attempts/{id}/succeed", api.SucceedAttemptHandler(lifecycleSvc, log))
+	mux.Handle("POST /attempts/{id}/succeed", api.SucceedAttemptHandler(lifecycleSvc, log, metrics))
 	mux.Handle("POST /attempts/{id}/fail", api.FailAttemptHandler(lifecycleSvc, log))
 	mux.Handle("POST /jobs/{id}/heartbeat", api.LifecycleJobHeartbeatHandler(lifecycleSvc, log))
 
@@ -75,9 +79,11 @@ func main() {
 	mux.Handle("GET /workers", api.ListWorkersHandler(workerRepo, log))
 	mux.Handle("GET /workers/{id}", api.GetWorkerHandler(workerRepo, log))
 
+	handler := api.LoggingMiddleware(mux, log, metrics)
+
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,

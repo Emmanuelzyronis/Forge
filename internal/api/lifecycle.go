@@ -7,6 +7,7 @@ import (
 
 	"github.com/Emmanuelzyronis/forge/internal/domain"
 	"github.com/Emmanuelzyronis/forge/internal/lifecycle"
+	"github.com/Emmanuelzyronis/forge/internal/telemetry"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -63,7 +64,7 @@ func StartAttemptHandler(svc *lifecycle.Service, log zerolog.Logger) http.Handle
 }
 
 // SucceedAttemptHandler handles POST /attempts/{id}/succeed.
-func SucceedAttemptHandler(svc *lifecycle.Service, log zerolog.Logger) http.HandlerFunc {
+func SucceedAttemptHandler(svc *lifecycle.Service, log zerolog.Logger, m *telemetry.Metrics) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		attemptID, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
@@ -88,6 +89,9 @@ func SucceedAttemptHandler(svc *lifecycle.Service, log zerolog.Logger) http.Hand
 			log.Error().Err(err).Str("attempt_id", attemptID.String()).Msg("succeed attempt failed")
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
+		}
+		if m != nil {
+			m.JobsSucceeded.Inc()
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "succeeded"})
 	}

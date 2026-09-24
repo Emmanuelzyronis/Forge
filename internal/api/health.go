@@ -13,6 +13,7 @@ import (
 type healthResponse struct {
 	Status   string `json:"status"`
 	Database string `json:"database"`
+	Version  string `json:"version"`
 }
 
 func HealthHandler(pool *pgxpool.Pool, log zerolog.Logger) http.HandlerFunc {
@@ -35,9 +36,10 @@ func HealthHandler(pool *pgxpool.Pool, log zerolog.Logger) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(httpStatus)
-		json.NewEncoder(w).Encode(healthResponse{
+		json.NewEncoder(w).Encode(healthResponse{ //nolint:errcheck
 			Status:   status,
 			Database: dbStatus,
+			Version:  "dev",
 		})
 	}
 }

@@ -13,6 +13,8 @@ import (
 
 	"github.com/Emmanuelzyronis/forge/internal/api"
 	"github.com/Emmanuelzyronis/forge/internal/config"
+	"github.com/Emmanuelzyronis/forge/internal/postgres"
+	"github.com/Emmanuelzyronis/forge/internal/submission"
 	"github.com/Emmanuelzyronis/forge/internal/telemetry"
 )
 
@@ -36,8 +38,12 @@ func main() {
 	}
 	log.Info().Msg("database connection established")
 
+	jobRepo := postgres.NewJobRepo(pool)
+	submitSvc := submission.NewService(jobRepo, log)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))
+	mux.Handle("POST /jobs", api.SubmitJobHandler(submitSvc, log))
 
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,

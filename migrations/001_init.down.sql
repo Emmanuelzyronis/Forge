@@ -1,1 +1,4 @@
--- Layer 1 placeholder: rollback defined in Layer 3 (Persistence)
+DROP TABLE IF EXISTS job_events;
+DROP TABLE IF EXISTS job_attempts;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS workers;

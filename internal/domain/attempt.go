@@ -39,16 +39,20 @@ var legalAttemptTransitions = map[AttemptState]map[AttemptState]bool{
 
 // ExecutionAttempt records a single worker's attempt to execute a job.
 type ExecutionAttempt struct {
-	ID          uuid.UUID
-	JobID       uuid.UUID
-	WorkerID    uuid.UUID
-	AttemptNum  int
-	State       AttemptState
-	StartedAt   *time.Time
-	FinishedAt  *time.Time
-	ErrorDetail *string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uuid.UUID
+	JobID         uuid.UUID
+	WorkerID      uuid.UUID
+	AttemptNum    int
+	State         AttemptState
+	LeaseToken    *uuid.UUID
+	StartedAt     *time.Time
+	FinishedAt    *time.Time
+	ErrorDetail   *string
+	FailureDetail []byte
+	Result        []byte
+	DurationMS    *int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // Transition advances the attempt to the given state, enforcing the attempt state machine.

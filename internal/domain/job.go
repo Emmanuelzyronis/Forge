@@ -33,20 +33,25 @@ var legalJobTransitions = map[JobState]map[JobState]bool{
 
 // Job is the root aggregate for a unit of work submitted to FORGE.
 type Job struct {
-	ID             uuid.UUID
-	Kind           string
-	Payload        []byte
-	State          JobState
-	Priority       int
-	MaxAttempts    int
-	AttemptCount   int
-	LeaseToken     *uuid.UUID
-	LeaseExpiresAt *time.Time
-	EligibleAt     time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	CorrelationID  *string
-	IdempotencyKey *string
+	ID               uuid.UUID
+	Kind             string
+	Payload          []byte
+	State            JobState
+	Priority         int
+	MaxAttempts      int
+	AttemptCount     int
+	TimeoutSecs      int
+	LeaseToken       *uuid.UUID
+	LeaseExpiresAt   *time.Time
+	EligibleAt       time.Time
+	QueuedAt         time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	TerminalAt       *time.Time
+	CurrentAttemptID *uuid.UUID
+	LastHeartbeatAt  *time.Time
+	CorrelationID    *string
+	IdempotencyKey   *string
 }
 
 // Transition advances the job to the given state, enforcing F-INV-001 and F-INV-008.

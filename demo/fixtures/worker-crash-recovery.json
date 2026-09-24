@@ -1,0 +1,137 @@
+{
+  "scenario": "worker-crash-recovery",
+  "generated_at": "2026-09-24T10:00:00Z",
+  "run_id": "demo-crash-fixture",
+  "job": {
+    "ID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "Kind": "demo.crash-recovery",
+    "State": "SUCCEEDED",
+    "AttemptCount": 2,
+    "MaxAttempts": 3,
+    "CreatedAt": "2026-09-24T10:00:00Z",
+    "UpdatedAt": "2026-09-24T10:01:02Z",
+    "TerminalAt": "2026-09-24T10:01:02Z",
+    "CorrelationID": null,
+    "IdempotencyKey": "demo-crash-fixture"
+  },
+  "timeline": [
+    {
+      "elapsed_secs": 0.0,
+      "event_type": "SUBMITTED",
+      "from_state": "",
+      "to_state": "QUEUED",
+      "worker_name": "",
+      "attempt_num": 0,
+      "is_crash": false,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 1.1,
+      "event_type": "CLAIMED",
+      "from_state": "QUEUED",
+      "to_state": "CLAIMED",
+      "worker_name": "worker-01",
+      "attempt_num": 1,
+      "is_crash": false,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 1.3,
+      "event_type": "STARTED",
+      "from_state": "CLAIMED",
+      "to_state": "RUNNING",
+      "worker_name": "worker-01",
+      "attempt_num": 1,
+      "is_crash": false,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 4.9,
+      "event_type": "CRASH",
+      "from_state": "",
+      "to_state": "",
+      "worker_name": "worker-01",
+      "attempt_num": 0,
+      "is_crash": true,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 42.7,
+      "event_type": "ABANDONED",
+      "from_state": "RUNNING",
+      "to_state": "QUEUED",
+      "worker_name": "",
+      "attempt_num": 0,
+      "is_crash": false,
+      "is_recovery": true
+    },
+    {
+      "elapsed_secs": 43.1,
+      "event_type": "CLAIMED",
+      "from_state": "QUEUED",
+      "to_state": "CLAIMED",
+      "worker_name": "worker-02",
+      "attempt_num": 2,
+      "is_crash": false,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 43.4,
+      "event_type": "STARTED",
+      "from_state": "CLAIMED",
+      "to_state": "RUNNING",
+      "worker_name": "worker-02",
+      "attempt_num": 2,
+      "is_crash": false,
+      "is_recovery": false
+    },
+    {
+      "elapsed_secs": 62.1,
+      "event_type": "SUCCEEDED",
+      "from_state": "RUNNING",
+      "to_state": "SUCCEEDED",
+      "worker_name": "worker-02",
+      "attempt_num": 2,
+      "is_crash": false,
+      "is_recovery": false
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_num": 1,
+      "worker_name": "worker-01",
+      "state": "ABANDONED",
+      "duration_ms": null,
+      "fail_reason": "lease expired — worker crashed"
+    },
+    {
+      "attempt_num": 2,
+      "worker_name": "worker-02",
+      "state": "SUCCEEDED",
+      "duration_ms": 18700,
+      "fail_reason": ""
+    }
+  ],
+  "workers": [
+    {
+      "ID": "wk-aaa111",
+      "Name": "worker-01",
+      "State": "OFFLINE",
+      "LastSeen": "2026-09-24T10:00:04.9Z"
+    },
+    {
+      "ID": "wk-bbb222",
+      "Name": "worker-02",
+      "State": "ONLINE",
+      "LastSeen": "2026-09-24T10:01:02Z"
+    }
+  ],
+  "stats": {
+    "total_duration_secs": 62.1,
+    "recovery_latency_secs": 38,
+    "lease_duration_secs": 30,
+    "recovery_interval_secs": 10,
+    "attempt_count": 2,
+    "max_attempts": 3
+  }
+}

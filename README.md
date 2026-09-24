@@ -232,35 +232,37 @@ The system was built layer-by-layer, each committed independently:
 
 ---
 
-## Running the failure demonstration
+## Crash-recovery demo
 
-The recovery scenario is demonstrable in a running system:
+A reproducible scenario that proves the recovery path end-to-end. Postgres and the API run in Docker; workers run as local processes so the crash is visible and measurable.
 
 ```bash
-# Start the stack
-make run
-
-# Submit a job and note its ID
-JOB_ID=$(curl -sf -X POST http://localhost:8080/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"kind":"demo.task","payload":{},"max_attempts":3}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-
-# Find which worker claimed it and kill that container
-docker ps | grep forge-worker
-
-# Simulate crash (replace CONTAINER_ID)
-docker kill CONTAINER_ID
-
-# Wait for lease_expires_at (default 30s) + recovery interval (10s)
-sleep 45
-
-# Job is back in QUEUED or already SUCCEEDED by the surviving worker
-curl -sf http://localhost:8080/jobs/$JOB_ID | python3 -m json.tool
-
-# Full attempt history shows the ABANDONED attempt and the recovery
-curl -sf http://localhost:8080/jobs/$JOB_ID/events | python3 -m json.tool
+make demo-crash
 ```
+
+The script (`demo/scripts/demo-crash.sh`):
+
+1. Resets the environment (`docker compose down -v`)
+2. Brings up postgres + forge-api
+3. Starts **worker-01** (`FORGE_WORKER_NAME=worker-01`) as a local process
+4. Submits a `demo.crash-recovery` job (`max_attempts=3`, 12s execution time)
+5. Waits for the job to reach **RUNNING**
+6. Sends **SIGKILL** to worker-01 — no sentinel write
+7. Waits ~40s for the recovery scheduler to detect the expired lease and re-queue
+8. Starts **worker-02** (`FORGE_WORKER_NAME=worker-02`)
+9. Waits for the job to **SUCCEED** on attempt 2
+10. Collects evidence → `demo/evidence/raw-evidence.json` + `demo/evidence/presentation.json`
+
+See [docs/DEMO.md](docs/DEMO.md) for full documentation.
+
+### Rendering the portfolio video
+
+```bash
+make demo-video
+# Output: remotion/out/forge-demo.mp4  (1920×1080 60fps ~90s)
+```
+
+The Remotion project (`remotion/`) consumes `demo/evidence/presentation.json` (or the fixture at `demo/fixtures/worker-crash-recovery.json` if no live run has been done) and renders 7 scenes: Problem → Normal Execution → Worker Failure → Lease Expiration → Recovery → Success → Evidence.
 
 ---
 

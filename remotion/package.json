@@ -1,0 +1,30 @@
+{
+  "name": "forge-demo-video",
+  "version": "1.0.0",
+  "description": "FORGE crash-recovery portfolio video — 60-90s 1920×1080 60fps",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio",
+    "render": "remotion render ForgeDemo out/forge-demo.mp4 --fps=60 --codec=h264",
+    "render:fixture": "FORGE_FIXTURE=../demo/fixtures/worker-crash-recovery.json remotion render ForgeDemo out/forge-demo-fixture.mp4 --fps=60 --codec=h264"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/media-utils": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.3.0"
+  },
+  "remotion": {
+    "entryPoint": "src/index.ts",
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "durationInFrames": 5400
+  }
+}

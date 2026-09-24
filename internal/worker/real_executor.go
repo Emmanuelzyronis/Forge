@@ -57,10 +57,17 @@ func RealExecutor(client *Client, log zerolog.Logger) JobHandler {
 }
 
 // runJob executes the job and returns the result payload.
-// The default implementation simulates work; real dispatch-on-kind logic lives here.
+// Dispatch is on Kind; demo.crash-recovery runs long enough to make a crash observable.
 func runJob(ctx context.Context, job *ClaimedJob) ([]byte, error) {
+	var dur time.Duration
+	switch job.Kind {
+	case "demo.crash-recovery", "demo.stale-worker":
+		dur = 12 * time.Second
+	default:
+		dur = 100 * time.Millisecond
+	}
 	select {
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(dur):
 		return []byte(`{"status":"ok","kind":"` + job.Kind + `"}`), nil
 	case <-ctx.Done():
 		return nil, ctx.Err()

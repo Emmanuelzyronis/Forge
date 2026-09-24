@@ -1,0 +1,1 @@
+-- Layer 1 placeholder: authoritative schema defined in Layer 3 (Persistence)

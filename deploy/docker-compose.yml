@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: forge
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: forge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge -d forge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  forge-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      FORGE_DATABASE_URL: postgres://forge:forge@postgres:5432/forge?sslmode=disable
+      FORGE_LISTEN_ADDR: ":8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  forge-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    environment:
+      FORGE_DATABASE_URL: postgres://forge:forge@postgres:5432/forge?sslmode=disable
+      FORGE_API_URL: http://forge-api:8080
+      FORGE_WORKER_NAME: worker-1
+    depends_on:
+      - forge-api
+    restart: on-failure
+
+volumes:
+  postgres_data:

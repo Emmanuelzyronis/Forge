@@ -1,0 +1,65 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Emmanuelzyronis/forge/internal/api"
+	"github.com/Emmanuelzyronis/forge/internal/config"
+	"github.com/Emmanuelzyronis/forge/internal/telemetry"
+)
+
+func main() {
+	cfg := config.Load()
+	log := telemetry.New()
+
+	log.Info().Str("addr", cfg.ListenAddr).Msg("forge-api starting")
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create connection pool")
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatal().Err(err).Msg("failed to connect to database")
+	}
+	log.Info().Msg("database connection established")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", api.HealthHandler(pool, log))
+
+	srv := &http.Server{
+		Addr:         cfg.ListenAddr,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	go func() {
+		log.Info().Str("addr", cfg.ListenAddr).Msg("http server listening")
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal().Err(err).Msg("http server error")
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info().Msg("shutting down")
+
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutCancel()
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Error().Err(err).Msg("shutdown error")
+	}
+}

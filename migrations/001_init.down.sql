@@ -1,0 +1,1 @@
+-- Layer 1 placeholder: rollback defined in Layer 3 (Persistence)

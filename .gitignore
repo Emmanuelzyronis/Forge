@@ -1,0 +1,28 @@
+# Compiled binaries (root-level build outputs)
+/forge-api
+/forge-worker
+*.exe
+*.test
+*.out
+
+# Build artifacts
+dist/
+bin/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Go
+vendor/
+
+# Evidence (committed separately when generated)
+evidence/*.json
+
+# Temporary
+/tmp/

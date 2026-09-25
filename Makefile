@@ -1,4 +1,4 @@
-.PHONY: build test test-integration lint run stop logs demo demo-crash demo-video
+.PHONY: build test test-integration lint run stop logs demo demo-crash
 
 GO     := PATH=$$PATH:/usr/local/go/bin go
 DOCKER := docker compose -f deploy/docker-compose.yml
@@ -33,12 +33,3 @@ demo:
 # Output: demo/evidence/raw-evidence.json  demo/evidence/presentation.json
 demo-crash:
 	@bash demo/scripts/demo-crash.sh
-
-# Render the portfolio video using Remotion (requires Node.js 18+).
-# Consumes demo/evidence/presentation.json; falls back to demo/fixtures/ if absent.
-# Output: remotion/out/forge-demo.mp4  (1920×1080 60fps ~90s)
-demo-video:
-	@cd remotion && \
-	  [ -d node_modules ] || npm install && \
-	  npm run render
-	@echo "Video written to remotion/out/forge-demo.mp4"

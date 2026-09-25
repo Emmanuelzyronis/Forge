@@ -4,6 +4,8 @@ Distributed job execution platform. PostgreSQL is the queue — no Redis, no Rab
 
 Built in Go as an engineering portfolio project. 13 implementation layers from scaffold to running system.
 
+![Crash-recovery demo — SIGKILL → lease expiry → re-queue → SUCCEEDED](demo/forge-crash-recovery.gif)
+
 ---
 
 ## Architecture
@@ -254,15 +256,6 @@ The script (`demo/scripts/demo-crash.sh`):
 10. Collects evidence → `demo/evidence/raw-evidence.json` + `demo/evidence/presentation.json`
 
 See [docs/DEMO.md](docs/DEMO.md) for full documentation.
-
-### Rendering the portfolio video
-
-```bash
-make demo-video
-# Output: remotion/out/forge-demo.mp4  (1920×1080 60fps ~90s)
-```
-
-The Remotion project (`remotion/`) consumes `demo/evidence/presentation.json` (or the fixture at `demo/fixtures/worker-crash-recovery.json` if no live run has been done) and renders 7 scenes: Problem → Normal Execution → Worker Failure → Lease Expiration → Recovery → Success → Evidence.
 
 ---
 

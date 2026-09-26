@@ -8,6 +8,32 @@ Built in Go as an engineering portfolio project. 13 implementation layers from s
 
 ---
 
+## Demo
+
+> Interactive terminal demo — [view the full case study](https://emmanuelzyronis.vercel.app/work/forge)
+
+```text
+$ make run
+
+forge-api     listening on :8080
+forge-worker-1  polling queue...
+forge-worker-2  polling queue...
+
+POST /jobs  {"type":"email","payload":{"to":"user@example.com"}}
+→ {"id":"job_8f3a2c","status":"queued"}
+
+worker-1  claimed job_8f3a2c  (SELECT FOR UPDATE SKIP LOCKED)
+worker-1  heartbeat token renewed every 10s
+worker-1  SUCCEEDED job_8f3a2c  → event written atomically
+
+# SIGKILL worker-1 mid-job
+worker-2  lease expired for job_8f3a2c after 30s
+worker-2  re-queued job_8f3a2c (attempt 2)
+worker-2  SUCCEEDED job_8f3a2c  (crash recovery ✓)
+```
+
+---
+
 ## Architecture
 
 ```
